@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A股技术分析</title>
+  <style>
+    :root {
+      --bg: #0f1923;
+      --card: #1a2a3a;
+      --border: #2a4055;
+      --text: #e8f0f5;
+      --text-dim: #8899aa;
+      --accent: #4fc3f7;
+      --green: #4caf50;
+      --red: #f44336;
+      --yellow: #ffc107;
+      --blue: #2196f3;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+
+    /* 顶部标题 */
+    .header {
+      text-align: center;
+      padding: 30px 0 20px;
+    }
+    .header h1 {
+      font-size: 28px;
+      letter-spacing: 2px;
+    }
+    .header p {
+      color: var(--text-dim);
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    /* 搜索框 */
+    .search-box {
+      display: flex;
+      gap: 10px;
+      margin: 24px 0;
+    }
+    .search-box input {
+      flex: 1;
+      padding: 14px 18px;
+      font-size: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s;
+    }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box input::placeholder { color: var(--text-dim); }
+    .search-box button {
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: var(--bg);
+      cursor: pointer;
+      transition: opacity .2s, transform .1s;
+      white-space: nowrap;
+    }
+    .search-box button:hover { opacity: .85; }
+    .search-box button:active { transform: scale(.96); }
+    .search-box button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .quick-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .quick-tags span { font-size: 12px; color: var(--text-dim); }
+    .quick-tags a {
+      font-size: 13px; color: var(--accent); cursor: pointer;
+      text-decoration: none; padding: 2px 8px;
+      border: 1px solid var(--border); border-radius: 4px;
+      transition: border-color .2s;
+    }
+    .quick-tags a:hover { border-color: var(--accent); }
+
+    /* 加载动画 */
+    .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 错误提示 */
+    .error-msg {
+      text-align: center; padding: 16px;
+      color: var(--red); font-size: 15px;
+      background: rgba(244,67,54,.1);
+      border-radius: 10px; margin: 20px 0;
+    }
+
+    /* 报告卡片 */
+    .report { display: none; }
+    .report.active { display: block; animation: fadein .4s; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    /* 报告头部 */
+    .report-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .report-header .code { font-size: 20px; font-weight: 700; }
+    .report-header #rName { font-size: 16px; margin-left: 8px; }
+    .report-header .src { font-size: 12px; color: var(--text-dim); }
+    .badge {
+      display: inline-block; padding: 2px 10px;
+      font-size: 12px; border-radius: 4px;
+      background: rgba(79,195,247,.15); color: var(--accent);
+    }
+
+    /* 指标行 */
+    .indicators {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px; margin-top: 16px;
+    }
+    .indicator {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 8px 12px; background: rgba(0,0,0,.15); border-radius: 8px;
+    }
+    .indicator .label { font-size: 12px; color: var(--text-dim); }
+    .indicator .value { font-size: 15px; font-weight: 600; }
+
+    /* 评分 */
+    .scores-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+    .score-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .score-row .name { width: 70px; font-size: 13px; color: var(--text-dim); text-align: right; }
+    .score-bar-wrap {
+      flex: 1; height: 20px;
+      background: rgba(0,0,0,.2); border-radius: 10px;
+      position: relative; overflow: hidden;
+    }
+    .score-bar {
+      height: 100%; border-radius: 10px;
+      transition: width .6s ease;
+      display: flex; align-items: center; justify-content: flex-end;
+      padding-right: 8px; font-size: 12px; font-weight: 700;
+      min-width: 28px;
+    }
+    .score-bar.pos { background: linear-gradient(90deg, #2e7d32, #4caf50); color: #fff; }
+    .score-bar.neg { background: linear-gradient(90deg, #c62828, #f44336); color: #fff; }
+    .score-center-line {
+      position: absolute; left: 50%; top: 0; bottom: 0;
+      width: 1px; background: rgba(255,255,255,.2);
+    }
+
+    .total-score {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 16px; margin-top: 8px; border-top: 1px solid var(--border);
+    }
+    .total-score .label { font-size: 15px; font-weight: 600; }
+    .total-score .num { font-size: 28px; font-weight: 800; }
+
+    /* 分析依据 */
+    .reasons { list-style: none; }
+    .reasons li {
+      padding: 6px 0; font-size: 14px; color: var(--text);
+      display: flex; gap: 8px; align-items: flex-start;
+    }
+    .reasons li::before { content: "•"; color: var(--accent); font-weight: bold; }
+
+    /* 投资建议 */
+    .advice-card { text-align: center; padding: 28px 20px; }
+    .advice-letter {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 56px; height: 56px;
+      font-size: 28px; font-weight: 800; border-radius: 50%;
+      margin-bottom: 12px;
+    }
+    .advice-letter.A { background: rgba(76,175,80,.15); color: var(--green); border: 2px solid var(--green); }
+    .advice-letter.B { background: rgba(33,150,243,.15); color: var(--blue); border: 2px solid var(--blue); }
+    .advice-letter.C { background: rgba(255,193,7,.15); color: var(--yellow); border: 2px solid var(--yellow); }
+    .advice-letter.D { background: rgba(244,67,54,.15); color: var(--red); border: 2px solid var(--red); }
+    .advice-text { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .advice-desc { font-size: 14px; color: var(--text-dim); line-height: 1.7; }
+
+    /* 风险提示 */
+    .disclaimer {
+      text-align: center; font-size: 13px; color: var(--text-dim);
+      padding: 16px; line-height: 1.6;
+    }
+
+    /* 持仓分析 */
+    .position-info {
+      display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .position-info .item {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 10px 16px; background: rgba(0,0,0,.15); border-radius: 8px;
+      min-width: 120px;
+    }
+    .position-info .item .label { font-size: 12px; color: var(--text-dim); }
+    .position-info .item .value { font-size: 18px; font-weight: 700; }
+    .position-advice-box {
+      text-align: center; padding: 16px; border-radius: 10px;
+      margin-top: 8px;
+    }
+    .position-advice-box .pos-advice { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .position-advice-box .pos-detail { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+    .pos-profit { background: rgba(76,175,80,.1); }
+    .pos-profit .pos-advice { color: var(--green); }
+    .pos-loss { background: rgba(244,67,54,.1); }
+    .pos-loss .pos-advice { color: var(--red); }
+    .pos-warn { background: rgba(255,193,7,.1); }
+    .pos-warn .pos-advice { color: var(--yellow); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📈 A 股技术分析</h1>
+    <p>输入股票代码，获取基于 8 大技术指标的综合投资建议</p>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="codeInput" placeholder="输入 6 位股票代码，如 600519" maxlength="6" autocomplete="off">
+    <input type="text" id="buyPriceInput" placeholder="买入价（可选）" style="width:140px" autocomplete="off">
+    <button id="analyzeBtn" onclick="doAnalyze()">分析</button>
+  </div>
+
+  <div class="quick-tags">
+    <span>快速选择：</span>
+    <a onclick="quickFill('600519')">600519 贵州茅台</a>
+    <a onclick="quickFill('000001')">000001 平安银行</a>
+    <a onclick="quickFill('300750')">300750 宁德时代</a>
+    <a onclick="quickFill('002594')">002594 比亚迪</a>
+    <a onclick="quickFill('600036')">600036 招商银行</a>
+  </div>
+
+  <div id="loading" class="loading" style="display:none">
+    <div class="spinner"></div>
+    <p>正在分析中...</p>
+  </div>
+
+  <div id="error" class="error-msg" style="display:none"></div>
+
+  <div id="report" class="report">
+    <!-- 指标概览 -->
+    <div class="card">
+      <div class="report-header">
+        <span class="code" id="rCode"></span><span class="badge" id="rName"></span>
+        <span class="badge" id="rSrc"></span>
+      </div>
+      <div class="indicators" id="rIndicators"></div>
+    </div>
+
+    <!-- 评分明细 -->
+    <div class="card">
+      <div class="scores-title">📊 各维度评分</div>
+      <div id="rScores"></div>
+      <div class="total-score">
+        <span class="label">综合评分</span>
+        <span class="num" id="rTotal"></span>
+      </div>
+    </div>
+
+    <!-- 分析依据 -->
+    <div class="card">
+      <div class="scores-title">📝 分析依据</div>
+      <ul class="reasons" id="rReasons"></ul>
+    </div>
+
+    <!-- 投资建议 -->
+    <div class="card advice-card">
+      <div class="advice-letter" id="rAdviceLetter"></div>
+      <div class="advice-text" id="rAdviceText"></div>
+      <div class="advice-desc" id="rAdviceDesc"></div>
+    </div>
+
+    <!-- 持仓分析 -->
+    <div class="card" id="rPositionCard" style="display:none">
+      <div class="scores-title">💼 持仓分析</div>
+      <div class="position-info" id="rPositionInfo"></div>
+      <div class="position-advice-box" id="rPositionAdvice"></div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    ⚠ 本程序基于技术指标量化分析，仅供参考，不构成投资建议。股市有风险，投资需谨慎。
+  </div>
+</div>
+
+<script>
+function fmt(v, d) {
+  v = Number(v) || 0;
+  return v.toFixed(d || 2);
+}
+
+function quickFill(code) {
+  document.getElementById('codeInput').value = code;
+  doAnalyze();
+}
+
+async function doAnalyze() {
+  const code = document.getElementById('codeInput').value.trim();
+  const buyPrice = document.getElementById('buyPriceInput').value.trim();
+  const btn = document.getElementById('analyzeBtn');
+  const loadingEl = document.getElementById('loading');
+  const errorEl = document.getElementById('error');
+  const reportEl = document.getElementById('report');
+
+  errorEl.style.display = 'none';
+  reportEl.classList.remove('active');
+
+  if (!/^\d{6}$/.test(code)) {
+    errorEl.textContent = '请输入 6 位数字股票代码';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  loadingEl.style.display = 'block';
+
+  try {
+    const body = { code: code };
+    if (buyPrice) body.buy_price = buyPrice;
+    const resp = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    renderReport(data);
+  } catch (e) {
+    errorEl.textContent = '请求失败: ' + e.message;
+    errorEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    loadingEl.style.display = 'none';
+  }
+}
+
+function renderReport(d) {
+  // 头部
+  document.getElementById('rCode').textContent = '代码 ' + d.symbol;
+  document.getElementById('rName').textContent = d.name || '';
+  document.getElementById('rSrc').textContent = d.data_source;
+
+  // 指标
+  const ind = d.indicators;
+  const items = [
+    ['收盘价', '¥' + fmt(d.price)],
+    ['MA5', fmt(ind.MA5)],
+    ['MA10', fmt(ind.MA10)],
+    ['MA20', fmt(ind.MA20)],
+    ['MA60', fmt(ind.MA60)],
+    ['MA250(年线)', fmt(ind.MA250)],
+    ['RSI(14)', fmt(ind.RSI, 1)],
+    ['MACD DIF', fmt(ind.MACD_DIF, 4)],
+    ['MACD DEA', fmt(ind.MACD_DEA, 4)],
+    ['KDJ K', fmt(ind.KDJ_K, 1)],
+    ['KDJ D', fmt(ind.KDJ_D, 1)],
+    ['KDJ J', fmt(ind.KDJ_J, 1)],
+  ];
+  document.getElementById('rIndicators').innerHTML = items.map(([label, value]) =>
+    `<div class="indicator"><span class="label">${label}</span><span class="value">${value}</span></div>`
+  ).join('');
+
+  // 评分条
+  const maxAbs = 30;
+  const scoreNames = Object.keys(d.scores);
+  document.getElementById('rScores').innerHTML = scoreNames.map(name => {
+    const score = d.scores[name];
+    const abs = Math.abs(score);
+    const pct = Math.min(abs / maxAbs * 50, 50);
+    const cls = score >= 0 ? 'pos' : 'neg';
+    const sign = score >= 0 ? '+' : '';
+    const marginLeft = score >= 0 ? '50%' : (50 - pct) + '%';
+    return `
+      <div class="score-row">
+        <span class="name">${name}</span>
+        <div class="score-bar-wrap">
+          <div class="score-center-line"></div>
+          <div class="score-bar ${cls}" style="margin-left:${marginLeft}; width:${pct}%">${sign}${score}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // 总分
+  const ts = d.total_score;
+  const tsEl = document.getElementById('rTotal');
+  tsEl.textContent = (ts >= 0 ? '+' : '') + fmt(ts, 1);
+  tsEl.style.color = ts >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // 分析依据
+  document.getElementById('rReasons').innerHTML = d.reasons.map(r => `<li>${r}</li>`).join('');
+
+  // 投资建议
+  document.getElementById('rAdviceLetter').textContent = d.advice;
+  document.getElementById('rAdviceLetter').className = 'advice-letter ' + d.advice;
+  document.getElementById('rAdviceText').textContent = d.advice + '. ' + d.action;
+  document.getElementById('rAdviceDesc').textContent = d.advice_desc.replace(/^\w+\.\s*[\w\u4e00-\u9fff]+\n\s*/, '');
+
+  // 持仓分析
+  const posCard = document.getElementById('rPositionCard');
+  if (d.position) {
+    const p = d.position;
+    const profit = p.is_profit;
+    const cls = profit ? 'pos-profit' : (p.position_advice.includes('割肉') || p.position_advice.includes('止损') ? 'pos-loss' : 'pos-warn');
+    const pnlSign = profit ? '+' : '';
+    const pnlColor = profit ? 'var(--green)' : 'var(--red)';
+
+    document.getElementById('rPositionInfo').innerHTML = `
+      <div class="item"><span class="label">买入价</span><span class="value">¥${fmt(p.buy_price)}</span></div>
+      <div class="item"><span class="label">当前价</span><span class="value">¥${fmt(p.current_price)}</span></div>
+      <div class="item"><span class="label">盈亏比例</span><span class="value" style="color:${pnlColor}">${pnlSign}${p.pnl_pct}%</span></div>
+    `;
+    document.getElementById('rPositionAdvice').className = 'position-advice-box ' + cls;
+    document.getElementById('rPositionAdvice').innerHTML = `
+      <div class="pos-advice">${p.position_advice}</div>
+      <div class="pos-detail">${p.position_detail}</div>
+    `;
+    posCard.style.display = 'block';
+  } else {
+    posCard.style.display = 'none';
+  }
+
+  document.getElementById('report').classList.add('active');
+}
+
+// 回车触发分析
+document.getElementById('codeInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doAnalyze();
+});
+</script>
+</body>
+</html>
