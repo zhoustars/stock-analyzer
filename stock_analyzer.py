@@ -35,8 +35,8 @@ def get_stock_name(symbol: str) -> str:
     import requests
     prefix = _sina_prefix(symbol)
     try:
-        url = f"http://hq.sinajs.cn/list={prefix}{symbol}"
-        r = requests.get(url, headers={"Referer": "http://finance.sina.com.cn"}, timeout=5)
+        url = f"https://hq.sinajs.cn/list={prefix}{symbol}"
+        r = requests.get(url, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
         text = r.text
         start = text.find('"') + 1
         name = text[start:].split(",")[0]
@@ -55,8 +55,8 @@ def fetch_realtime_quote(symbol: str):
     """
     import requests
     prefix = _sina_prefix(symbol)
-    url = f"http://hq.sinajs.cn/list={prefix}{symbol}"
-    r = requests.get(url, headers={"Referer": "http://finance.sina.com.cn"}, timeout=5)
+    url = f"https://hq.sinajs.cn/list={prefix}{symbol}"
+    r = requests.get(url, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
     # 新浪返回 GBK 编码，按需解码
     r.encoding = "gbk"
     text = r.text
