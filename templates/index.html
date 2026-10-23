@@ -61,6 +61,7 @@
     }
     .search-box input:focus { border-color: var(--accent); }
     .search-box input::placeholder { color: var(--text-dim); }
+    .search-box #buyPriceInput { width: 140px; flex: 0 0 auto; }
     .search-box button {
       padding: 14px 28px;
       font-size: 16px;
@@ -179,10 +180,13 @@
     /* 分析依据 */
     .reasons { list-style: none; }
     .reasons li {
-      padding: 6px 0; font-size: 14px; color: var(--text);
-      display: flex; gap: 8px; align-items: flex-start;
+      padding: 6px 0 6px 14px; font-size: 14px; color: var(--text);
+      position: relative; line-height: 1.6; word-break: break-word;
     }
-    .reasons li::before { content: "•"; color: var(--accent); font-weight: bold; }
+    .reasons li::before {
+      content: "•"; color: var(--accent); font-weight: bold;
+      position: absolute; left: 0; top: 6px;
+    }
 
     /* 投资建议 */
     .advice-card { text-align: center; padding: 28px 20px; }
@@ -318,12 +322,12 @@
 <div class="container">
   <div class="header">
     <h1>📈 A 股技术分析</h1>
-    <p>输入股票代码，获取基于 8 大技术指标的综合投资建议</p>
+    <p>输入股票或 ETF 代码，获取基于 8 大技术指标的综合投资建议</p>
   </div>
 
   <div class="search-box">
-    <input type="text" id="codeInput" placeholder="输入 6 位股票代码，如 600519" maxlength="6" autocomplete="off">
-    <input type="text" id="buyPriceInput" placeholder="买入价（可选）" style="width:140px" autocomplete="off">
+    <input type="text" id="codeInput" placeholder="输入 6 位代码（股票/ETF），如 600519" maxlength="6" autocomplete="off">
+    <input type="text" id="buyPriceInput" placeholder="买入价（可选）" autocomplete="off">
     <button id="analyzeBtn" onclick="doAnalyze()">分析</button>
   </div>
 
@@ -334,6 +338,8 @@
     <a onclick="quickFill('300750')">300750 宁德时代</a>
     <a onclick="quickFill('002594')">002594 比亚迪</a>
     <a onclick="quickFill('600036')">600036 招商银行</a>
+    <a onclick="quickFill('510300')">510300 沪深300ETF</a>
+    <a onclick="quickFill('588000')">588000 科创50ETF</a>
   </div>
 
   <div id="loading" class="loading" style="display:none">
@@ -412,7 +418,7 @@ async function doAnalyze() {
   reportEl.classList.remove('active');
 
   if (!/^\d{6}$/.test(code)) {
-    errorEl.textContent = '请输入 6 位数字股票代码';
+    errorEl.textContent = '请输入 6 位数字代码（股票或 ETF）';
     errorEl.style.display = 'block';
     return;
   }

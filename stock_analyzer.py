@@ -21,13 +21,18 @@ import pandas as pd
 # ============================================================
 
 def _sina_prefix(symbol: str) -> str:
-    """根据股票代码前缀返回新浪市场标识"""
-    if symbol.startswith(("60", "68", "9")):
+    """根据股票/基金代码前缀返回新浪市场标识"""
+    if symbol.startswith(("60", "68", "9", "50", "51", "52", "53", "55", "56", "58")):
         return "sh"
-    elif symbol.startswith(("00", "30", "20")):
+    elif symbol.startswith(("00", "30", "20", "15", "16", "18")):
         return "sz"
     else:
         return "bj"
+
+
+def _is_etf(symbol: str) -> bool:
+    """判断是否为场内 ETF/LOF 基金代码（沪市 50/51/52/53/55/56/58，深市 15/16/18）"""
+    return symbol.startswith(("50", "51", "52", "53", "55", "56", "58", "15", "16", "18"))
 
 
 def get_stock_name(symbol: str) -> str:
@@ -35,8 +40,8 @@ def get_stock_name(symbol: str) -> str:
     import requests
     prefix = _sina_prefix(symbol)
     try:
-        url = f"http://hq.sinajs.cn/list={prefix}{symbol}"
-        r = requests.get(url, headers={"Referer": "http://finance.sina.com.cn"}, timeout=5)
+        url = f"https://hq.sinajs.cn/list={prefix}{symbol}"
+        r = requests.get(url, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
         text = r.text
         start = text.find('"') + 1
         name = text[start:].split(",")[0]
@@ -55,8 +60,8 @@ def fetch_realtime_quote(symbol: str):
     """
     import requests
     prefix = _sina_prefix(symbol)
-    url = f"http://hq.sinajs.cn/list={prefix}{symbol}"
-    r = requests.get(url, headers={"Referer": "http://finance.sina.com.cn"}, timeout=5)
+    url = f"https://hq.sinajs.cn/list={prefix}{symbol}"
+    r = requests.get(url, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
     # 新浪返回 GBK 编码，按需解码
     r.encoding = "gbk"
     text = r.text
@@ -83,7 +88,7 @@ def fetch_realtime_quote(symbol: str):
 
 
 def fetch_real_data(symbol: str, days: int = 300):
-    """通过 akshare 获取真实 A 股日线数据（新浪数据源），并补充当日实时行情。
+    """通过 akshare 获取真实 A 股/ETF 日线数据（新浪数据源），并补充当日实时行情。
 
     新浪日线接口通常滞后一个交易日，导致程序把前一交易日的收盘价
     当成"最新收盘价"。这里在日线数据基础上，用新浪实时行情接口
@@ -96,9 +101,35 @@ def fetch_real_data(symbol: str, days: int = 300):
     end = datetime.now().strftime("%Y%m%d")
     start = (datetime.now() - timedelta(days=int(days * 1.6))).strftime("%Y%m%d")
 
-    df = ak.stock_zh_a_daily(symbol=sina_symbol, start_date=start, end_date=end, adjust="qfq")
-    df = df[["date", "open", "close", "high", "low", "volume"]].copy()
-    df["date"] = pd.to_datetime(df["date"])
+    if _is_etf(symbol):
+        # 场内 ETF/LOF 使用基金日线接口（新浪源）
+        try:
+            df = ak.fund_etf_hist_sina(symbol=sina_symbol)
+        except Exception as e:
+            print(f"  [提示] ETF日线接口异常: {e}")
+            df = pd.DataFrame()
+
+        if df.empty:
+            # 新浪 ETF 列表未收录（如超新基金或代码段不在覆盖范围），降级到股票日线接口
+            print(f"  [提示] 新浪 ETF 接口无数据，尝试股票日线接口: {sina_symbol}")
+            try:
+                df = ak.stock_zh_a_daily(symbol=sina_symbol, start_date=start, end_date=end, adjust="qfq")
+            except Exception as e2:
+                print(f"  [提示] 股票日线接口也失败: {e2}")
+                df = pd.DataFrame()
+
+        if df.empty:
+            # 两个接口都不行，抛异常让上层切模拟数据
+            raise ValueError(f"新浪源未收录该基金代码: {sina_symbol}")
+
+        df = df[["date", "open", "close", "high", "low", "volume"]].copy()
+        df["date"] = pd.to_datetime(df["date"])
+        df = df[df["date"] >= pd.to_datetime(start)].copy()
+    else:
+        df = ak.stock_zh_a_daily(symbol=sina_symbol, start_date=start, end_date=end, adjust="qfq")
+        df = df[["date", "open", "close", "high", "low", "volume"]].copy()
+        df["date"] = pd.to_datetime(df["date"])
+
     df = df.sort_values("date").reset_index(drop=True)
 
     # 用实时接口补回当日数据
