@@ -180,10 +180,13 @@
     /* 分析依据 */
     .reasons { list-style: none; }
     .reasons li {
-      padding: 6px 0; font-size: 14px; color: var(--text);
-      display: flex; gap: 8px; align-items: flex-start;
+      padding: 6px 0 6px 14px; font-size: 14px; color: var(--text);
+      position: relative; line-height: 1.6; word-break: break-word;
     }
-    .reasons li::before { content: "•"; color: var(--accent); font-weight: bold; }
+    .reasons li::before {
+      content: "•"; color: var(--accent); font-weight: bold;
+      position: absolute; left: 0; top: 6px;
+    }
 
     /* 投资建议 */
     .advice-card { text-align: center; padding: 28px 20px; }
