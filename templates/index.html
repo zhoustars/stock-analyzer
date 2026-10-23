@@ -157,6 +157,7 @@
       position: relative; overflow: hidden;
     }
     .score-bar {
+      position: absolute; top: 0; bottom: 0;
       height: 100%; border-radius: 10px;
       transition: width .6s ease;
       display: flex; align-items: center;
@@ -495,14 +496,14 @@ function renderReport(d) {
     const pct = Math.max(rawPct, MIN_BAR_PCT);
     const cls = score >= 0 ? 'pos' : 'neg';
     const sign = score >= 0 ? '+' : '';
-    // 正条从50%向右延伸，负条从50%向左延伸（用50-pct定位起点）
-    const marginLeft = score >= 0 ? '50%' : (50 - pct) + '%';
+    // 正条从中心线向右延伸，负条从中心线向左延伸
+    const posStyle = score >= 0 ? `left:50%; width:${pct}%;` : `right:50%; width:${pct}%;`;
     return `
       <div class="score-row">
         <span class="name">${name}</span>
         <div class="score-bar-wrap">
           <div class="score-center-line"></div>
-          <div class="score-bar ${cls}" style="margin-left:${marginLeft}; width:${pct}%">${sign}${score}</div>
+          <div class="score-bar ${cls}" style="${posStyle}">${sign}${score}</div>
         </div>
       </div>`;
   }).join('');
