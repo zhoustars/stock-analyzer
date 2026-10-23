@@ -22,7 +22,7 @@ import pandas as pd
 
 def _sina_prefix(symbol: str) -> str:
     """根据股票/基金代码前缀返回新浪市场标识"""
-    if symbol.startswith(("60", "68", "9", "50", "51", "52", "56", "58")):
+    if symbol.startswith(("60", "68", "9", "50", "51", "52", "53", "55", "56", "58")):
         return "sh"
     elif symbol.startswith(("00", "30", "20", "15", "16", "18")):
         return "sz"
@@ -31,8 +31,8 @@ def _sina_prefix(symbol: str) -> str:
 
 
 def _is_etf(symbol: str) -> bool:
-    """判断是否为场内 ETF/LOF 基金代码（沪市 50/51/52/56/58，深市 15/16/18）"""
-    return symbol.startswith(("50", "51", "52", "56", "58", "15", "16", "18"))
+    """判断是否为场内 ETF/LOF 基金代码（沪市 50/51/52/53/55/56/58，深市 15/16/18）"""
+    return symbol.startswith(("50", "51", "52", "53", "55", "56", "58", "15", "16", "18"))
 
 
 def get_stock_name(symbol: str) -> str:
