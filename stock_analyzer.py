@@ -21,13 +21,18 @@ import pandas as pd
 # ============================================================
 
 def _sina_prefix(symbol: str) -> str:
-    """根据股票代码前缀返回新浪市场标识"""
-    if symbol.startswith(("60", "68", "9")):
+    """根据股票/基金代码前缀返回新浪市场标识"""
+    if symbol.startswith(("60", "68", "9", "50", "51", "52", "56", "58")):
         return "sh"
-    elif symbol.startswith(("00", "30", "20")):
+    elif symbol.startswith(("00", "30", "20", "15", "16", "18")):
         return "sz"
     else:
         return "bj"
+
+
+def _is_etf(symbol: str) -> bool:
+    """判断是否为场内 ETF/LOF 基金代码（沪市 50/51/52/56/58，深市 15/16/18）"""
+    return symbol.startswith(("50", "51", "52", "56", "58", "15", "16", "18"))
 
 
 def get_stock_name(symbol: str) -> str:
@@ -83,7 +88,7 @@ def fetch_realtime_quote(symbol: str):
 
 
 def fetch_real_data(symbol: str, days: int = 300):
-    """通过 akshare 获取真实 A 股日线数据（新浪数据源），并补充当日实时行情。
+    """通过 akshare 获取真实 A 股/ETF 日线数据（新浪数据源），并补充当日实时行情。
 
     新浪日线接口通常滞后一个交易日，导致程序把前一交易日的收盘价
     当成"最新收盘价"。这里在日线数据基础上，用新浪实时行情接口
@@ -96,9 +101,17 @@ def fetch_real_data(symbol: str, days: int = 300):
     end = datetime.now().strftime("%Y%m%d")
     start = (datetime.now() - timedelta(days=int(days * 1.6))).strftime("%Y%m%d")
 
-    df = ak.stock_zh_a_daily(symbol=sina_symbol, start_date=start, end_date=end, adjust="qfq")
-    df = df[["date", "open", "close", "high", "low", "volume"]].copy()
-    df["date"] = pd.to_datetime(df["date"])
+    if _is_etf(symbol):
+        # 场内 ETF/LOF 使用基金日线接口，返回全量历史，需按起始日期截取
+        df = ak.fund_etf_hist_sina(symbol=sina_symbol)
+        df = df[["date", "open", "close", "high", "low", "volume"]].copy()
+        df["date"] = pd.to_datetime(df["date"])
+        df = df[df["date"] >= pd.to_datetime(start)].copy()
+    else:
+        df = ak.stock_zh_a_daily(symbol=sina_symbol, start_date=start, end_date=end, adjust="qfq")
+        df = df[["date", "open", "close", "high", "low", "volume"]].copy()
+        df["date"] = pd.to_datetime(df["date"])
+
     df = df.sort_values("date").reset_index(drop=True)
 
     # 用实时接口补回当日数据
