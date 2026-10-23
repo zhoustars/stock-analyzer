@@ -514,8 +514,9 @@ function renderReport(d) {
   tsEl.textContent = (ts >= 0 ? '+' : '') + fmt(ts, 1);
   tsEl.style.color = ts >= 0 ? 'var(--green)' : 'var(--red)';
 
-  // 分析依据
-  document.getElementById('rReasons').innerHTML = d.reasons.map(r => `<li>${r}</li>`).join('');
+  // 分析依据（转义 < > 防止被浏览器当成 HTML 标签）
+  const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  document.getElementById('rReasons').innerHTML = d.reasons.map(r => `<li>${escapeHtml(r)}</li>`).join('');
 
   // 投资建议
   document.getElementById('rAdviceLetter').textContent = d.advice;
@@ -539,8 +540,8 @@ function renderReport(d) {
     `;
     document.getElementById('rPositionAdvice').className = 'position-advice-box ' + cls;
     document.getElementById('rPositionAdvice').innerHTML = `
-      <div class="pos-advice">${p.position_advice}</div>
-      <div class="pos-detail">${p.position_detail}</div>
+      <div class="pos-advice">${escapeHtml(p.position_advice)}</div>
+      <div class="pos-detail">${escapeHtml(p.position_detail)}</div>
     `;
     posCard.style.display = 'block';
   } else {
