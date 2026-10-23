@@ -102,8 +102,26 @@ def fetch_real_data(symbol: str, days: int = 300):
     start = (datetime.now() - timedelta(days=int(days * 1.6))).strftime("%Y%m%d")
 
     if _is_etf(symbol):
-        # 场内 ETF/LOF 使用基金日线接口，返回全量历史，需按起始日期截取
-        df = ak.fund_etf_hist_sina(symbol=sina_symbol)
+        # 场内 ETF/LOF 使用基金日线接口（新浪源）
+        try:
+            df = ak.fund_etf_hist_sina(symbol=sina_symbol)
+        except Exception as e:
+            print(f"  [提示] ETF日线接口异常: {e}")
+            df = pd.DataFrame()
+
+        if df.empty:
+            # 新浪 ETF 列表未收录（如超新基金或代码段不在覆盖范围），降级到股票日线接口
+            print(f"  [提示] 新浪 ETF 接口无数据，尝试股票日线接口: {sina_symbol}")
+            try:
+                df = ak.stock_zh_a_daily(symbol=sina_symbol, start_date=start, end_date=end, adjust="qfq")
+            except Exception as e2:
+                print(f"  [提示] 股票日线接口也失败: {e2}")
+                df = pd.DataFrame()
+
+        if df.empty:
+            # 两个接口都不行，抛异常让上层切模拟数据
+            raise ValueError(f"新浪源未收录该基金代码: {sina_symbol}")
+
         df = df[["date", "open", "close", "high", "low", "volume"]].copy()
         df["date"] = pd.to_datetime(df["date"])
         df = df[df["date"] >= pd.to_datetime(start)].copy()
