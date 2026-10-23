@@ -514,8 +514,9 @@ function renderReport(d) {
   tsEl.textContent = (ts >= 0 ? '+' : '') + fmt(ts, 1);
   tsEl.style.color = ts >= 0 ? 'var(--green)' : 'var(--red)';
 
-  // 分析依据
-  document.getElementById('rReasons').innerHTML = d.reasons.map(r => `<li>${r}</li>`).join('');
+  // 分析依据（转义 < > 防止被浏览器当成 HTML 标签）
+  const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  document.getElementById('rReasons').innerHTML = d.reasons.map(r => `<li>${escapeHtml(r)}</li>`).join('');
 
   // 投资建议
   document.getElementById('rAdviceLetter').textContent = d.advice;
