@@ -61,6 +61,7 @@
     }
     .search-box input:focus { border-color: var(--accent); }
     .search-box input::placeholder { color: var(--text-dim); }
+    .search-box #buyPriceInput { width: 140px; flex: 0 0 auto; }
     .search-box button {
       padding: 14px 28px;
       font-size: 16px;
@@ -323,7 +324,7 @@
 
   <div class="search-box">
     <input type="text" id="codeInput" placeholder="输入 6 位代码（股票/ETF），如 600519" maxlength="6" autocomplete="off">
-    <input type="text" id="buyPriceInput" placeholder="买入价（可选）" style="width:140px" autocomplete="off">
+    <input type="text" id="buyPriceInput" placeholder="买入价（可选）" autocomplete="off">
     <button id="analyzeBtn" onclick="doAnalyze()">分析</button>
   </div>
 
