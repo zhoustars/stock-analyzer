@@ -159,12 +159,18 @@
     .score-bar {
       height: 100%; border-radius: 10px;
       transition: width .6s ease;
-      display: flex; align-items: center; justify-content: flex-end;
-      padding-right: 8px; font-size: 12px; font-weight: 700;
-      min-width: 28px;
+      display: flex; align-items: center;
+      font-size: 12px; font-weight: 700;
+      justify-content: flex-end; padding-right: 8px;
     }
-    .score-bar.pos { background: linear-gradient(90deg, #2e7d32, #4caf50); color: #fff; }
-    .score-bar.neg { background: linear-gradient(90deg, #c62828, #f44336); color: #fff; }
+    .score-bar.pos {
+      background: linear-gradient(90deg, #2e7d32, #4caf50); color: #fff;
+      justify-content: flex-end; padding-right: 8px;
+    }
+    .score-bar.neg {
+      background: linear-gradient(90deg, #c62828, #f44336); color: #fff;
+      justify-content: flex-start; padding-left: 8px;
+    }
     .score-center-line {
       position: absolute; left: 50%; top: 0; bottom: 0;
       width: 1px; background: rgba(255,255,255,.2);
@@ -481,12 +487,15 @@ function renderReport(d) {
   // 评分条
   const maxAbs = 30;
   const scoreNames = Object.keys(d.scores);
+  const MIN_BAR_PCT = 4;  // 最小可见宽度百分比（保证小数值也能看到）
   document.getElementById('rScores').innerHTML = scoreNames.map(name => {
     const score = d.scores[name];
     const abs = Math.abs(score);
-    const pct = Math.min(abs / maxAbs * 50, 50);
+    const rawPct = Math.min(abs / maxAbs * 50, 50);
+    const pct = Math.max(rawPct, MIN_BAR_PCT);
     const cls = score >= 0 ? 'pos' : 'neg';
     const sign = score >= 0 ? '+' : '';
+    // 正条从50%向右延伸，负条从50%向左延伸（用50-pct定位起点）
     const marginLeft = score >= 0 ? '50%' : (50 - pct) + '%';
     return `
       <div class="score-row">
