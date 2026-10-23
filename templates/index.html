@@ -540,8 +540,8 @@ function renderReport(d) {
     `;
     document.getElementById('rPositionAdvice').className = 'position-advice-box ' + cls;
     document.getElementById('rPositionAdvice').innerHTML = `
-      <div class="pos-advice">${p.position_advice}</div>
-      <div class="pos-detail">${p.position_detail}</div>
+      <div class="pos-advice">${escapeHtml(p.position_advice)}</div>
+      <div class="pos-detail">${escapeHtml(p.position_detail)}</div>
     `;
     posCard.style.display = 'block';
   } else {
