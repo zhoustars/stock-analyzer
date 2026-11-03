@@ -22,17 +22,23 @@ import pandas as pd
 
 def _sina_prefix(symbol: str) -> str:
     """根据股票/基金代码前缀返回新浪市场标识"""
-    if symbol.startswith(("60", "68", "9", "50", "51", "52", "53", "55", "56", "58")):
-        return "sh"
+    if symbol.startswith(("60", "68", "90", "50", "51", "52", "53", "55", "56", "58")):
+        return "sh"   # 沪市 A 股、科创板、沪 B，以及场内基金
     elif symbol.startswith(("00", "30", "20", "15", "16", "18")):
-        return "sz"
+        return "sz"   # 深市 A 股、创业板、深 B，以及场内基金
     else:
-        return "bj"
+        return "bj"   # 北交所（92/43/83/87 等）
 
 
 def _is_etf(symbol: str) -> bool:
     """判断是否为场内 ETF/LOF 基金代码（沪市 50/51/52/53/55/56/58，深市 15/16/18）"""
     return symbol.startswith(("50", "51", "52", "53", "55", "56", "58", "15", "16", "18"))
+
+
+def _norm_name(s: str) -> str:
+    """名称归一化：全角转半角、删除空格、统一大写，便于模糊匹配"""
+    import unicodedata
+    return "".join(unicodedata.normalize("NFKC", s).split()).upper()
 
 
 def resolve_symbol(query: str):
@@ -46,9 +52,10 @@ def resolve_symbol(query: str):
     if q.isdigit() and len(q) == 6:
         return q, None
 
+    qn = _norm_name(q)
     import requests
     try:
-        url = "https://suggest3.sinajs.cn/suggest/type=&key=" + requests.utils.quote(q)
+        url = "https://suggest3.sinajs.cn/suggest/type=&key=" + requests.utils.quote(qn or q)
         r = requests.get(url, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
         r.encoding = "gbk"
         text = r.text
@@ -65,16 +72,17 @@ def resolve_symbol(query: str):
         if len(p) < 5:
             continue
         name, typ, code = p[0].strip(), p[1].strip(), p[2].strip()
-        # 11=A股，22/203=场内ETF/LOF；其余（港股、美股、场外基金）不支持
+        # 11=A股，22/203=场内ETF/LOF/REIT；其余（港股、美股、场外基金）不支持
         if typ not in ("11", "22", "203"):
             continue
         if not (code.isdigit() and len(code) == 6) or code in seen:
             continue
-        if name == q:
+        nn = _norm_name(name)
+        if nn == qn:
             score = 100
-        elif name.startswith(q):
+        elif nn.startswith(qn):
             score = 80
-        elif q in name:
+        elif qn in nn:
             score = 60
         else:
             continue
