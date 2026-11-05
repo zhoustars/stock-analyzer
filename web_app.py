@@ -8,7 +8,8 @@ import json
 import numpy as np
 from flask import Flask, request, jsonify, render_template
 
-from stock_analyzer import get_stock_data, calc_indicators, analyze, analyze_position, ADVICE_DESC, get_stock_name
+from stock_analyzer import (get_stock_data, calc_indicators, analyze, analyze_position,
+                            ADVICE_DESC, get_stock_name, resolve_symbol)
 
 app = Flask(__name__)
 
@@ -38,10 +39,14 @@ def index():
 @app.route("/api/analyze", methods=["POST"])
 def api_analyze():
     data = request.get_json(silent=True) or {}
-    code = str(data.get("code", "")).strip()
+    query = str(data.get("code", "")).strip()
 
-    if not code.isdigit() or len(code) != 6:
-        return jsonify({"error": "请输入 6 位数字股票代码"}), 400
+    if not query:
+        return jsonify({"error": "请输入股票/ETF 代码或名称"}), 400
+
+    code, matched_name = resolve_symbol(query)
+    if not code:
+        return jsonify({"error": f"未找到与「{query}」匹配的股票或场内基金，请检查名称或代码"}), 400
 
     try:
         df, data_source, err_msg = get_stock_data(code)
@@ -51,6 +56,9 @@ def api_analyze():
         result["advice_desc"] = ADVICE_DESC[result["advice"]]
         result["symbol"] = code
         result["name"] = get_stock_name(code)
+        if matched_name and result["name"] == code:
+            result["name"] = matched_name
+        result["query"] = query
         result["data_source"] = data_source
         result["debug_error"] = err_msg
 

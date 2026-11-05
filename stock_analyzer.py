@@ -22,17 +22,80 @@ import pandas as pd
 
 def _sina_prefix(symbol: str) -> str:
     """根据股票/基金代码前缀返回新浪市场标识"""
-    if symbol.startswith(("60", "68", "9", "50", "51", "52", "53", "55", "56", "58")):
-        return "sh"
+    if symbol.startswith(("60", "68", "90", "50", "51", "52", "53", "55", "56", "58")):
+        return "sh"   # 沪市 A 股、科创板、沪 B，以及场内基金
     elif symbol.startswith(("00", "30", "20", "15", "16", "18")):
-        return "sz"
+        return "sz"   # 深市 A 股、创业板、深 B，以及场内基金
     else:
-        return "bj"
+        return "bj"   # 北交所（92/43/83/87 等）
 
 
 def _is_etf(symbol: str) -> bool:
     """判断是否为场内 ETF/LOF 基金代码（沪市 50/51/52/53/55/56/58，深市 15/16/18）"""
     return symbol.startswith(("50", "51", "52", "53", "55", "56", "58", "15", "16", "18"))
+
+
+def _norm_name(s: str) -> str:
+    """名称归一化：全角转半角、删除空格、统一大写，便于模糊匹配"""
+    import unicodedata
+    return "".join(unicodedata.normalize("NFKC", s).split()).upper()
+
+
+def resolve_symbol(query: str):
+    """把用户输入解析为 6 位代码：支持 6 位代码，也支持股票/基金名称。
+
+    返回 (symbol, matched_name)；找不到时返回 (None, None)。
+    """
+    q = (query or "").strip()
+    if not q:
+        return None, None
+    if q.isdigit() and len(q) == 6:
+        return q, None
+
+    qn = _norm_name(q)
+    import requests
+    try:
+        url = "https://suggest3.sinajs.cn/suggest/type=&key=" + requests.utils.quote(qn or q)
+        r = requests.get(url, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
+        r.encoding = "gbk"
+        text = r.text
+        start = text.find('"') + 1
+        end_q = text.find('"', start)
+        body = text[start:end_q] if end_q > start else ""
+    except Exception:
+        return None, None
+
+    candidates = []
+    seen = set()
+    for item in body.split(";"):
+        p = item.split(",")
+        if len(p) < 5:
+            continue
+        name, typ, code = p[0].strip(), p[1].strip(), p[2].strip()
+        # 11=A股，22/203=场内ETF/LOF/REIT；其余（港股、美股、场外基金）不支持
+        if typ not in ("11", "22", "203"):
+            continue
+        if not (code.isdigit() and len(code) == 6) or code in seen:
+            continue
+        nn = _norm_name(name)
+        if nn == qn:
+            score = 100
+        elif nn.startswith(qn):
+            score = 80
+        elif qn in nn:
+            score = 60
+        else:
+            continue
+        if typ == "11":
+            score += 5  # 同名时 A 股优先
+        seen.add(code)
+        candidates.append((score, code, name))
+
+    if not candidates:
+        return None, None
+    candidates.sort(key=lambda x: -x[0])  # 同分时保留接口原始顺序（新浪按热度排序）
+    _, code, name = candidates[0]
+    return code, name
 
 
 def get_stock_name(symbol: str) -> str:
@@ -735,31 +798,33 @@ def main():
         print("          📈  A 股技术分析程序  📈")
         print("=" * 58)
         for code in args.codes:
-            if code.isdigit() and len(code) == 6:
-                analyze_one(code)
+            symbol, _ = resolve_symbol(code)
+            if symbol:
+                analyze_one(symbol)
             else:
-                print(f"\n  ⚠ {code} 不是有效的 6 位股票代码，已跳过")
+                print(f"\n  ⚠ 未找到与「{code}」匹配的股票或场内基金，已跳过")
         return
 
     # 无参数 → 交互模式
     print("=" * 58)
     print("          📈  A 股技术分析程序  📈")
     print("=" * 58)
-    print("  输入股票代码（如 600519、000001、300750），")
+    print("  输入股票/ETF 代码或名称（如 600519、招商银行），")
     print("  程序将给出投资建议。输入 q 退出。")
     print()
 
     while True:
         try:
-            symbol = input("请输入股票代码 > ").strip()
+            query = input("请输入代码或名称 > ").strip()
         except EOFError:
             print("已退出。")
             break
-        if symbol.lower() in ("q", "quit", "exit"):
+        if query.lower() in ("q", "quit", "exit"):
             print("已退出。")
             break
-        if not symbol.isdigit() or len(symbol) != 6:
-            print("  ⚠ 请输入 6 位数字股票代码（如 600519）")
+        symbol, _ = resolve_symbol(query)
+        if not symbol:
+            print(f"  ⚠ 未找到与「{query}」匹配的股票或场内基金")
             continue
         analyze_one(symbol)
 
